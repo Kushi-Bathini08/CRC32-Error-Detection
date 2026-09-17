@@ -1,3 +1,4 @@
+
 import streamlit as st
 import zlib
 import csv
@@ -11,7 +12,7 @@ from datetime import datetime
 
 st.set_page_config(
     page_title="CRC-32 Error Detection System",
-    page_icon="🔐",
+    page_icon="CRC",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -21,57 +22,42 @@ st.set_page_config(
 # SESSION STATE
 # =========================================================
 
-default_values = {
+DEFAULT_STATE = {
     "file_name": None,
     "original_data": None,
     "current_data": None,
     "reference_crc": None,
     "current_crc": None,
     "last_result": "READY",
-    "report_data": None
+    "report_data": None,
 }
 
-for key, value in default_values.items():
+for key, value in DEFAULT_STATE.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
 
 # =========================================================
-# CRC-32 CALCULATION
+# CRC-32 FUNCTIONS
 # =========================================================
 
 def calculate_crc32(data):
-    """
-    Calculate CRC-32 checksum using 4096-byte chunks.
-    """
-
-    crc = 0
-
-    for i in range(0, len(data), 4096):
-        chunk = data[i:i + 4096]
-        crc = zlib.crc32(chunk, crc)
-
-    return crc & 0xFFFFFFFF
+    """Calculate CRC-32 checksum."""
+    return zlib.crc32(data) & 0xFFFFFFFF
 
 
-def format_crc(crc):
-    """
-    Convert CRC-32 value to 8-character hexadecimal format.
-    """
-
-    if crc is None:
+def format_crc(value):
+    """Format CRC-32 as uppercase hexadecimal."""
+    if value is None:
         return "—"
 
-    return f"{crc:08X}"
+    return f"{value:08X}"
 
 
 def format_file_size(size):
-    """
-    Format file size in a readable way.
-    """
-
+    """Convert bytes into readable file size."""
     if size < 1024:
-        return f"{size} bytes"
+        return f"{size} B"
 
     if size < 1024 * 1024:
         return f"{size / 1024:.2f} KB"
@@ -80,46 +66,508 @@ def format_file_size(size):
 
 
 def reset_dashboard():
-    """
-    Reset all dashboard values.
-    """
-
-    st.session_state.file_name = None
-    st.session_state.original_data = None
-    st.session_state.current_data = None
-    st.session_state.reference_crc = None
-    st.session_state.current_crc = None
-    st.session_state.last_result = "READY"
-    st.session_state.report_data = None
+    """Reset dashboard state."""
+    for key, value in DEFAULT_STATE.items():
+        st.session_state[key] = value
 
 
 # =========================================================
-# HEADER
+# PROFESSIONAL DARK THEME
 # =========================================================
 
-st.title("🔐 CRC-32 ERROR DETECTION SYSTEM")
+st.markdown(
+    """
+    <style>
 
-st.write(
-    "File integrity verification using CRC-32 checksum comparison."
+    /* =====================================================
+       GLOBAL
+    ===================================================== */
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 50% -10%,
+                rgba(124, 92, 255, 0.13),
+                transparent 35%
+            ),
+            radial-gradient(
+                circle at 0% 35%,
+                rgba(124, 92, 255, 0.05),
+                transparent 25%
+            ),
+            #08080D;
+
+        color: #F5F5F7;
+    }
+
+    .main .block-container {
+        max-width: 1180px;
+        padding-top: 2.5rem;
+        padding-bottom: 4rem;
+    }
+
+    #MainMenu {
+        visibility: hidden;
+    }
+
+    footer {
+        visibility: hidden;
+    }
+
+    header {
+        background: transparent !important;
+    }
+
+
+    /* =====================================================
+       TYPOGRAPHY
+    ===================================================== */
+
+    html,
+    body,
+    [class*="css"] {
+        font-family:
+            Inter,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+    }
+
+    h1,
+    h2,
+    h3 {
+        color: #F5F5F7 !important;
+    }
+
+
+    /* =====================================================
+       HERO MARKDOWN
+    ===================================================== */
+
+    .hero-kicker {
+        color: #A78BFA !important;
+        font-size: 0.72rem !important;
+        font-weight: 750 !important;
+        letter-spacing: 0.22em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 0.6rem !important;
+    }
+
+    .hero-title {
+        color: #FFFFFF !important;
+        font-size: 3.35rem !important;
+        line-height: 1.05 !important;
+        font-weight: 760 !important;
+        letter-spacing: -0.045em !important;
+        margin-bottom: 0.8rem !important;
+    }
+
+    .hero-highlight {
+        color: #A78BFA !important;
+        text-shadow:
+            0 0 25px rgba(167, 139, 250, 0.20);
+    }
+
+    .hero-description {
+        color: #9696A3 !important;
+        max-width: 700px;
+        font-size: 1rem !important;
+        line-height: 1.75 !important;
+    }
+
+    .hero-line {
+        height: 1px;
+        margin-top: 2.5rem;
+        margin-bottom: 2.5rem;
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+
+    /* =====================================================
+       SECTION HEADINGS
+    ===================================================== */
+
+    .section-number {
+        color: #A78BFA !important;
+        font-family: "Courier New", monospace !important;
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.12em !important;
+    }
+
+    .section-title {
+        color: #F5F5F7 !important;
+        font-size: 1.18rem !important;
+        font-weight: 680 !important;
+    }
+
+    .section-description {
+        color: #777783 !important;
+        font-size: 0.88rem !important;
+        line-height: 1.6 !important;
+        margin-bottom: 1rem !important;
+    }
+
+
+    /* =====================================================
+       FILE UPLOADER
+    ===================================================== */
+
+    [data-testid="stFileUploader"] {
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255, 255, 255, 0.035),
+                rgba(255, 255, 255, 0.015)
+            );
+
+        border: 1px solid rgba(167, 139, 250, 0.22);
+        border-radius: 16px;
+        padding: 0.8rem;
+
+        box-shadow:
+            0 12px 40px rgba(0, 0, 0, 0.20),
+            0 0 25px rgba(124, 92, 255, 0.025);
+    }
+
+    [data-testid="stFileUploader"]:hover {
+        border-color: rgba(167, 139, 250, 0.42);
+
+        box-shadow:
+            0 12px 40px rgba(0, 0, 0, 0.25),
+            0 0 30px rgba(124, 92, 255, 0.08);
+    }
+
+    [data-testid="stFileUploaderDropzone"] {
+        background: rgba(10, 10, 15, 0.55);
+        border-radius: 11px;
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+    }
+
+
+    /* =====================================================
+       METRIC CARDS
+    ===================================================== */
+
+    [data-testid="stMetric"] {
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255, 255, 255, 0.045),
+                rgba(255, 255, 255, 0.018)
+            );
+
+        border: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 15px;
+        padding: 1.25rem;
+
+        box-shadow:
+            0 15px 45px rgba(0, 0, 0, 0.20);
+    }
+
+    [data-testid="stMetric"]:hover {
+        border-color: rgba(167, 139, 250, 0.25);
+
+        box-shadow:
+            0 18px 50px rgba(0, 0, 0, 0.25),
+            0 0 22px rgba(124, 92, 255, 0.05);
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: #777783 !important;
+        font-size: 0.68rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.12em !important;
+        text-transform: uppercase !important;
+    }
+
+    [data-testid="stMetricValue"] {
+        color: #EDEDF2 !important;
+        font-family: "Courier New", monospace !important;
+        font-weight: 700 !important;
+    }
+
+
+    /* =====================================================
+       BUTTONS
+    ===================================================== */
+
+    .stButton > button,
+    .stDownloadButton > button {
+        min-height: 48px !important;
+        border-radius: 11px !important;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(255, 255, 255, 0.055),
+                rgba(255, 255, 255, 0.025)
+            ) !important;
+
+        color: #EDEDF2 !important;
+
+        border: 1px solid rgba(167, 139, 250, 0.25) !important;
+
+        font-size: 0.88rem !important;
+        font-weight: 650 !important;
+
+        box-shadow:
+            0 8px 25px rgba(0, 0, 0, 0.20),
+            0 0 18px rgba(124, 92, 255, 0.035);
+
+        transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            border-color 0.18s ease,
+            background 0.18s ease !important;
+    }
+
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        transform: translateY(-2px);
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(124, 92, 255, 0.17),
+                rgba(167, 139, 250, 0.07)
+            ) !important;
+
+        border-color: rgba(167, 139, 250, 0.70) !important;
+
+        box-shadow:
+            0 12px 30px rgba(0, 0, 0, 0.28),
+            0 0 24px rgba(124, 92, 255, 0.18),
+            0 0 6px rgba(167, 139, 250, 0.20);
+    }
+
+    .stButton > button[kind="primary"] {
+        background:
+            linear-gradient(
+                135deg,
+                #7455E8,
+                #8B6AF2
+            ) !important;
+
+        color: #FFFFFF !important;
+
+        border: 1px solid rgba(196, 181, 253, 0.70) !important;
+
+        box-shadow:
+            0 8px 28px rgba(124, 92, 255, 0.22),
+            0 0 22px rgba(124, 92, 255, 0.12);
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background:
+            linear-gradient(
+                135deg,
+                #8061F2,
+                #9A7BFF
+            ) !important;
+
+        border-color: #C4B5FD !important;
+
+        box-shadow:
+            0 12px 35px rgba(124, 92, 255, 0.30),
+            0 0 35px rgba(124, 92, 255, 0.22);
+    }
+
+
+    /* =====================================================
+       ALERTS
+    ===================================================== */
+
+    [data-testid="stAlert"] {
+        border-radius: 11px !important;
+        background: rgba(255, 255, 255, 0.025) !important;
+    }
+
+
+    /* =====================================================
+       CODE / CRC VALUES
+    ===================================================== */
+
+    .crc-display {
+        text-align: center;
+        padding: 1.1rem;
+        margin: 0.3rem 0 1rem 0;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(124, 92, 255, 0.085),
+                rgba(255, 255, 255, 0.018)
+            );
+
+        border: 1px solid rgba(167, 139, 250, 0.22);
+        border-radius: 15px;
+
+        box-shadow:
+            0 15px 45px rgba(0, 0, 0, 0.22),
+            0 0 30px rgba(124, 92, 255, 0.035);
+    }
+
+    .crc-label {
+        color: #858593 !important;
+        font-size: 0.67rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.13em !important;
+        text-transform: uppercase !important;
+    }
+
+    .crc-value {
+        color: #C4B5FD !important;
+        font-family: "Courier New", monospace !important;
+        font-size: 1.55rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.10em !important;
+        text-shadow:
+            0 0 18px rgba(167, 139, 250, 0.16);
+    }
+
+
+    /* =====================================================
+       RESULT BOXES
+    ===================================================== */
+
+    .result-intact {
+        padding: 1.25rem;
+        border-radius: 15px;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(52, 211, 153, 0.075),
+                rgba(52, 211, 153, 0.025)
+            );
+
+        border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+
+    .result-error {
+        padding: 1.25rem;
+        border-radius: 15px;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(248, 113, 113, 0.075),
+                rgba(248, 113, 113, 0.025)
+            );
+
+        border: 1px solid rgba(248, 113, 113, 0.25);
+    }
+
+    .result-generated {
+        padding: 1.25rem;
+        border-radius: 15px;
+
+        background:
+            linear-gradient(
+                145deg,
+                rgba(167, 139, 250, 0.075),
+                rgba(167, 139, 250, 0.025)
+            );
+
+        border: 1px solid rgba(167, 139, 250, 0.25);
+    }
+
+
+    /* =====================================================
+       FOOTER
+    ===================================================== */
+
+    .footer-text {
+        color: #5F5F6B !important;
+        text-align: center !important;
+        font-size: 0.72rem !important;
+        letter-spacing: 0.045em !important;
+        line-height: 1.8 !important;
+    }
+
+
+    /* =====================================================
+       MOBILE
+    ===================================================== */
+
+    @media (max-width: 768px) {
+
+        .main .block-container {
+            padding-top: 1.4rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .hero-title {
+            font-size: 2.25rem !important;
+        }
+
+        .hero-description {
+            font-size: 0.9rem !important;
+        }
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
-st.divider()
+
+# =========================================================
+# HERO
+# =========================================================
+
+st.markdown(
+    '<p class="hero-kicker">CRC-32 / FILE INTEGRITY</p>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<h1 class="hero-title">Error Detection <span class="hero-highlight">System</span></h1>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<p class="hero-description">'
+    'Generate and verify CRC-32 checksums to detect '
+    'accidental modifications in files.'
+    '</p>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="hero-line"></div>',
+    unsafe_allow_html=True
+)
 
 
 # =========================================================
-# FILE SELECTION
+# STEP 01 — SELECT FILE
 # =========================================================
 
-st.subheader("📁 File Selection")
+st.markdown(
+    '<p class="section-number">01</p>',
+    unsafe_allow_html=True
+)
 
-st.write(
-    "Upload a file to generate and verify its CRC-32 checksum."
+st.markdown(
+    "### Select File"
+)
+
+st.markdown(
+    '<p class="section-description">'
+    'Upload a file to begin CRC-32 generation and verification.'
+    '</p>',
+    unsafe_allow_html=True
 )
 
 uploaded_file = st.file_uploader(
     "Choose a file",
     type=None,
-    help="Select a file for CRC-32 error detection."
+    help="Select a file for CRC-32 error detection.",
+    label_visibility="collapsed"
 )
 
 
@@ -131,27 +579,20 @@ if uploaded_file is not None:
 
     uploaded_data = uploaded_file.getvalue()
 
-    # Detect a new file
     if (
         st.session_state.file_name != uploaded_file.name
         or st.session_state.original_data != uploaded_data
     ):
 
         st.session_state.file_name = uploaded_file.name
-
         st.session_state.original_data = uploaded_data
-
         st.session_state.current_data = uploaded_data
 
-        # Generate original/reference CRC
         reference_crc = calculate_crc32(uploaded_data)
 
         st.session_state.reference_crc = reference_crc
-
         st.session_state.current_crc = reference_crc
-
         st.session_state.last_result = "READY"
-
         st.session_state.report_data = None
 
 
@@ -168,113 +609,78 @@ last_result = st.session_state.last_result
 
 
 # =========================================================
-# CRC-32 STATUS
-# =========================================================
-
-st.subheader("📊 CRC-32 Status")
-
-status1, status2, status3, status4 = st.columns(4)
-
-
-with status1:
-
-    st.metric(
-        label="Verification Status",
-        value=last_result
-    )
-
-
-with status2:
-
-    st.metric(
-        label="Current CRC-32",
-        value=format_crc(current_crc)
-    )
-
-
-with status3:
-
-    st.metric(
-        label="Reference CRC-32",
-        value=format_crc(reference_crc)
-    )
-
-
-with status4:
-
-    st.metric(
-        label="Selected File",
-        value=file_name if file_name else "NO FILE"
-    )
-
-
-# =========================================================
-# FILE INFORMATION
+# STEP 02 — FILE INFORMATION
 # =========================================================
 
 if file_name is not None and current_data is not None:
 
-    st.divider()
+    st.markdown(
+        '<p class="section-number">02</p>',
+        unsafe_allow_html=True
+    )
 
-    st.subheader("📄 File Information")
+    st.markdown("### File Information")
 
     info1, info2, info3 = st.columns(3)
 
     with info1:
-
-        st.write("**File Name**")
-
-        st.info(file_name)
+        st.metric(
+            label="Selected File",
+            value=file_name
+        )
 
     with info2:
-
-        st.write("**File Size**")
-
-        st.info(
-            format_file_size(len(current_data))
+        st.metric(
+            label="File Size",
+            value=format_file_size(len(current_data))
         )
 
     with info3:
-
-        st.write("**Reference CRC-32**")
-
-        st.code(
-            format_crc(reference_crc),
-            language=None
+        st.markdown(
+            '<div class="crc-display">'
+            '<p class="crc-label">Reference CRC-32</p>'
+            f'<p class="crc-value">{format_crc(reference_crc)}</p>'
+            '</div>',
+            unsafe_allow_html=True
         )
-
 
 else:
 
     st.info(
-        "📌 Upload a file above to begin CRC-32 error detection."
+        "Upload a file above to begin CRC-32 error detection."
     )
 
 
 # =========================================================
-# CRC-32 OPERATIONS
+# STEP 03 — CRC-32 OPERATIONS
 # =========================================================
 
-st.divider()
+st.markdown(
+    '<p class="section-number">03</p>',
+    unsafe_allow_html=True
+)
 
-st.subheader("⚙️ CRC-32 Operations")
+st.markdown("### CRC-32 Operations")
 
-st.write(
-    "Generate the checksum, verify file integrity, or simulate "
-    "a file modification for error detection."
+st.markdown(
+    '<p class="section-description">'
+    'Generate the checksum, verify file integrity, or simulate '
+    'a file modification for error detection.'
+    '</p>',
+    unsafe_allow_html=True
 )
 
 operation1, operation2, operation3 = st.columns(3)
 
 
-# ---------------------------------------------------------
+# =========================================================
 # GENERATE CRC-32
-# ---------------------------------------------------------
+# =========================================================
 
 with operation1:
 
     if st.button(
-        "🔢 Generate CRC-32",
+        "Generate CRC-32",
         type="primary",
         use_container_width=True
     ):
@@ -287,33 +693,26 @@ with operation1:
 
         else:
 
-            calculated_crc = calculate_crc32(
-                current_data
-            )
+            calculated_crc = calculate_crc32(current_data)
 
             st.session_state.current_crc = calculated_crc
 
             if st.session_state.reference_crc is None:
-
                 st.session_state.reference_crc = calculated_crc
 
             st.session_state.last_result = "CRC GENERATED"
 
-            st.success(
-                f"CRC-32 generated: {format_crc(calculated_crc)}"
-            )
-
             st.rerun()
 
 
-# ---------------------------------------------------------
+# =========================================================
 # VERIFY CRC-32
-# ---------------------------------------------------------
+# =========================================================
 
 with operation2:
 
     if st.button(
-        "🔍 Verify CRC-32",
+        "Verify CRC-32",
         type="primary",
         use_container_width=True
     ):
@@ -332,39 +731,26 @@ with operation2:
 
         else:
 
-            calculated_crc = calculate_crc32(
-                current_data
-            )
+            calculated_crc = calculate_crc32(current_data)
 
             st.session_state.current_crc = calculated_crc
 
             if calculated_crc == reference_crc:
-
                 st.session_state.last_result = "FILE INTACT"
-
-                st.success(
-                    "✅ FILE INTACT — NO ERROR DETECTED"
-                )
-
             else:
-
                 st.session_state.last_result = "ERROR DETECTED"
-
-                st.error(
-                    "❌ FILE MODIFIED — ERROR DETECTED"
-                )
 
             st.rerun()
 
 
-# ---------------------------------------------------------
+# =========================================================
 # SIMULATE ERROR
-# ---------------------------------------------------------
+# =========================================================
 
 with operation3:
 
     if st.button(
-        "⚠️ Simulate Error",
+        "Simulate Error",
         use_container_width=True
     ):
 
@@ -382,11 +768,9 @@ with operation3:
 
         else:
 
-            modified_data = bytearray(
-                current_data
-            )
+            modified_data = bytearray(current_data)
 
-            # Flip one bit in the first byte
+            # Flip one bit in the first byte.
             modified_data[0] ^= 1
 
             st.session_state.current_data = bytes(
@@ -398,13 +782,7 @@ with operation3:
             )
 
             st.session_state.current_crc = modified_crc
-
             st.session_state.last_result = "FILE MODIFIED"
-
-            st.warning(
-                "⚠️ A simulated modification has been "
-                "introduced into the file."
-            )
 
             st.rerun()
 
@@ -415,110 +793,116 @@ with operation3:
 
 if last_result == "FILE INTACT":
 
-    st.divider()
-
-    st.success(
-        "### ✅ FILE INTACT\n\n"
-        "The current CRC-32 matches the reference CRC-32. "
-        "No error was detected."
+    st.markdown(
+        '<div class="result-intact">'
+        '<strong>FILE INTACT</strong><br>'
+        'The current CRC-32 matches the reference CRC-32. '
+        'No error was detected.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 
 elif last_result == "ERROR DETECTED":
 
-    st.divider()
-
-    st.error(
-        "### ❌ ERROR DETECTED\n\n"
-        "The current CRC-32 does not match the reference CRC-32. "
-        "The file has been modified."
-    )
-
-
-elif last_result == "FILE MODIFIED":
-
-    st.divider()
-
-    st.warning(
-        "### ⚠️ FILE MODIFIED\n\n"
-        "A simulated modification has been introduced. "
-        "Click **Verify CRC-32** to detect the error."
+    st.markdown(
+        '<div class="result-error">'
+        '<strong>ERROR DETECTED</strong><br>'
+        'The current CRC-32 does not match the reference CRC-32. '
+        'The file modification has been detected.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 
 elif last_result == "CRC GENERATED":
 
-    st.divider()
-
-    st.info(
-        "### ℹ️ CRC-32 GENERATED\n\n"
-        "The checksum has been calculated successfully."
+    st.markdown(
+        '<div class="result-generated">'
+        '<strong>CRC-32 GENERATED</strong><br>'
+        'The checksum has been calculated successfully.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 
 # =========================================================
-# CRC COMPARISON
+# STEP 04 — CRC-32 COMPARISON
 # =========================================================
 
 if reference_crc is not None and current_crc is not None:
 
-    st.divider()
+    st.markdown(
+        '<p class="section-number">04</p>',
+        unsafe_allow_html=True
+    )
 
-    st.subheader("🔎 CRC-32 Comparison")
+    st.markdown("### CRC-32 Comparison")
 
     comparison1, comparison2 = st.columns(2)
 
     with comparison1:
 
-        st.write("**Reference CRC-32**")
-
-        st.code(
-            format_crc(reference_crc),
-            language=None
+        st.markdown(
+            '<div class="crc-display">'
+            '<p class="crc-label">Reference CRC-32</p>'
+            f'<p class="crc-value">{format_crc(reference_crc)}</p>'
+            '</div>',
+            unsafe_allow_html=True
         )
 
     with comparison2:
 
-        st.write("**Current CRC-32**")
-
-        st.code(
-            format_crc(current_crc),
-            language=None
+        st.markdown(
+            '<div class="crc-display">'
+            '<p class="crc-label">Current CRC-32</p>'
+            f'<p class="crc-value">{format_crc(current_crc)}</p>'
+            '</div>',
+            unsafe_allow_html=True
         )
-
 
     if current_crc == reference_crc:
 
         st.success(
-            "✓ CRC-32 values match — File integrity maintained."
+            "CRC-32 values match — File integrity maintained."
         )
 
     else:
 
         st.error(
-            "✗ CRC-32 values differ — File modification detected."
+            "CRC-32 values differ — File modification detected."
         )
 
 
 # =========================================================
-# FILE MANAGEMENT
+# STEP 05 — FILE MANAGEMENT
 # =========================================================
 
-st.divider()
+st.markdown(
+    '<p class="section-number">05</p>',
+    unsafe_allow_html=True
+)
 
-st.subheader("🛠️ File Management")
+st.markdown("### File Management")
+
+st.markdown(
+    '<p class="section-description">'
+    'Restore the original file or prepare the verification report.'
+    '</p>',
+    unsafe_allow_html=True
+)
 
 management1, management2, management3 = st.columns(3)
 
 
-# ---------------------------------------------------------
+# =========================================================
 # RESTORE ORIGINAL
-# ---------------------------------------------------------
+# =========================================================
 
 with management1:
 
     if st.button(
-        "♻️ Restore Original",
+        "Restore Original",
         use_container_width=True
     ):
 
@@ -537,24 +921,19 @@ with management1:
             )
 
             st.session_state.current_crc = restored_crc
-
             st.session_state.last_result = "FILE INTACT"
-
-            st.success(
-                "♻️ Original file restored successfully."
-            )
 
             st.rerun()
 
 
-# ---------------------------------------------------------
+# =========================================================
 # CREATE CSV REPORT
-# ---------------------------------------------------------
+# =========================================================
 
 with management2:
 
     if st.button(
-        "📋 Create CSV Report",
+        "Create CSV Report",
         use_container_width=True
     ):
 
@@ -585,11 +964,9 @@ with management2:
 
                 result = "ERROR DETECTED"
 
-
             timestamp = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
-
 
             st.session_state.report_data = {
                 "Date and Time": timestamp,
@@ -603,41 +980,39 @@ with management2:
                 "Result": result
             }
 
-
             st.success(
-                "📋 CSV report created successfully."
+                "CSV report created successfully."
             )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # CLEAR DASHBOARD
-# ---------------------------------------------------------
+# =========================================================
 
 with management3:
 
     if st.button(
-        "🗑️ Clear Dashboard",
+        "Clear Dashboard",
         use_container_width=True
     ):
 
         reset_dashboard()
 
-        st.success(
-            "Dashboard cleared successfully."
-        )
-
         st.rerun()
 
 
 # =========================================================
-# CSV REPORT DOWNLOAD
+# STEP 06 — CSV REPORT
 # =========================================================
 
 if st.session_state.report_data is not None:
 
-    st.divider()
+    st.markdown(
+        '<p class="section-number">06</p>',
+        unsafe_allow_html=True
+    )
 
-    st.subheader("📥 CSV Report")
+    st.markdown("### CSV Report")
 
     report = st.session_state.report_data
 
@@ -655,33 +1030,35 @@ if st.session_state.report_data is not None:
     )
 
     writer.writeheader()
-
     writer.writerow(report)
 
     csv_data = csv_buffer.getvalue()
 
-
     st.download_button(
-        label="⬇️ Download CSV Report",
+        label="Download CSV Report",
         data=csv_data,
         file_name="error_detection_report.csv",
-        mime="text/csv"
+        mime="text/csv",
+        use_container_width=True
     )
 
 
 # =========================================================
-# PROJECT INFORMATION
+# STEP 07 — ABOUT THE SYSTEM
 # =========================================================
 
-st.divider()
+st.markdown(
+    '<p class="section-number">07</p>',
+    unsafe_allow_html=True
+)
 
-st.subheader("ℹ️ About the System")
+st.markdown("### About the System")
 
 about1, about2, about3 = st.columns(3)
 
 with about1:
 
-    st.write("**Purpose**")
+    st.markdown("**Purpose**")
 
     st.write(
         "Detect file modifications by comparing "
@@ -691,17 +1068,16 @@ with about1:
 
 with about2:
 
-    st.write("**Technique**")
+    st.markdown("**Technique**")
 
     st.write(
-        "CRC-32 checksum generation and "
-        "comparison."
+        "CRC-32 checksum generation and comparison."
     )
 
 
 with about3:
 
-    st.write("**Application Area**")
+    st.markdown("**Application Area**")
 
     st.write(
         "Operating Systems / Computer Networks "
@@ -713,10 +1089,17 @@ with about3:
 # FOOTER
 # =========================================================
 
-st.divider()
+st.markdown("---")
 
-st.caption(
-    "CRC-32 Error Detection System | "
-    "Operating Systems / Computer Networks | "
-    "Error Detection"
+st.markdown(
+    """
+    <p class="footer-text">
+        CRC-32 Error Detection System<br>
+        Operating Systems / Computer Networks
+        &nbsp;•&nbsp;
+        Error Detection
+    </p>
+    """,
+    unsafe_allow_html=True
 )
+
