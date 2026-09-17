@@ -5,15 +5,46 @@ import io
 from datetime import datetime
 
 
-# ============================================================
-# CRC-32 CORE LOGIC
-# ============================================================
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
+
+st.set_page_config(
+    page_title="CRC-32 Error Detection System",
+    page_icon="🔐",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+
+default_values = {
+    "file_name": None,
+    "original_data": None,
+    "current_data": None,
+    "reference_crc": None,
+    "current_crc": None,
+    "last_result": "READY",
+    "report_data": None
+}
+
+for key, value in default_values.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+# =========================================================
+# CRC-32 CALCULATION
+# =========================================================
 
 def calculate_crc32(data):
     """
-    Calculate CRC-32 using the same core logic
-    as the original Tkinter project.
+    Calculate CRC-32 checksum using 4096-byte chunks.
     """
+
     crc = 0
 
     for i in range(0, len(data), 4096):
@@ -23,120 +54,78 @@ def calculate_crc32(data):
     return crc & 0xFFFFFFFF
 
 
-# ============================================================
-# SESSION STATE
-# ============================================================
-
-def initialize_session():
-    if "file_name" not in st.session_state:
-        st.session_state.file_name = None
-
-    if "original_data" not in st.session_state:
-        st.session_state.original_data = None
-
-    if "current_data" not in st.session_state:
-        st.session_state.current_data = None
-
-    if "reference_crc" not in st.session_state:
-        st.session_state.reference_crc = None
-
-    if "last_result" not in st.session_state:
-        st.session_state.last_result = None
-
-
-initialize_session()
-
-
-# ============================================================
-# PAGE CONFIGURATION
-# ============================================================
-
-st.set_page_config(
-    page_title="CRC-32 Error Detection Dashboard",
-    page_icon="🔐",
-    layout="wide"
-)
-
-
-# ============================================================
-# CUSTOM CSS
-# ============================================================
-
-st.markdown(
+def format_crc(crc):
     """
-    <style>
+    Convert CRC-32 value to 8-character hexadecimal format.
+    """
 
-    .main-title {
-        text-align: center;
-        font-size: 38px;
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
+    if crc is None:
+        return "—"
 
-    .subtitle {
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 30px;
-    }
+    return f"{crc:08X}"
 
-    .status-box {
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 15px;
-        margin-bottom: 15px;
-    }
 
-    .success-box {
-        border: 2px solid #28a745;
-        background-color: #eaf8ee;
-    }
+def format_file_size(size):
+    """
+    Format file size in a readable way.
+    """
 
-    .error-box {
-        border: 2px solid #dc3545;
-        background-color: #fdecec;
-    }
+    if size < 1024:
+        return f"{size} bytes"
 
-    .info-box {
-        border: 2px solid #0d6efd;
-        background-color: #eef5ff;
-    }
+    if size < 1024 * 1024:
+        return f"{size / 1024:.2f} KB"
 
-    </style>
-    """,
-    unsafe_allow_html=True
+    return f"{size / (1024 * 1024):.2f} MB"
+
+
+def reset_dashboard():
+    """
+    Reset all dashboard values.
+    """
+
+    st.session_state.file_name = None
+    st.session_state.original_data = None
+    st.session_state.current_data = None
+    st.session_state.reference_crc = None
+    st.session_state.current_crc = None
+    st.session_state.last_result = "READY"
+    st.session_state.report_data = None
+
+
+# =========================================================
+# HEADER
+# =========================================================
+
+st.title("🔐 CRC-32 ERROR DETECTION SYSTEM")
+
+st.write(
+    "File integrity verification using CRC-32 checksum comparison."
 )
 
+st.divider()
 
-# ============================================================
-# TITLE
-# ============================================================
 
-st.markdown(
-    '<div class="main-title">🔐 CRC-32 ERROR DETECTION DASHBOARD</div>',
-    unsafe_allow_html=True
+# =========================================================
+# FILE SELECTION
+# =========================================================
+
+st.subheader("📁 File Selection")
+
+st.write(
+    "Upload a file to generate and verify its CRC-32 checksum."
 )
-
-st.markdown(
-    '<div class="subtitle">Cyclic Redundancy Check - File Integrity Verification</div>',
-    unsafe_allow_html=True
-)
-
-
-# ============================================================
-# FILE UPLOAD
-# ============================================================
-
-st.subheader("📁 Select File")
 
 uploaded_file = st.file_uploader(
-    "Upload a file to calculate and verify its CRC-32 checksum",
-    type=None
+    "Choose a file",
+    type=None,
+    help="Select a file for CRC-32 error detection."
 )
 
 
-# ============================================================
-# HANDLE NEW FILE
-# ============================================================
+# =========================================================
+# PROCESS FILE
+# =========================================================
 
 if uploaded_file is not None:
 
@@ -149,407 +138,585 @@ if uploaded_file is not None:
     ):
 
         st.session_state.file_name = uploaded_file.name
+
         st.session_state.original_data = uploaded_data
+
         st.session_state.current_data = uploaded_data
-        st.session_state.reference_crc = None
-        st.session_state.last_result = None
 
-        st.success(
-            f"File loaded successfully: {uploaded_file.name}"
-        )
+        # Generate original/reference CRC
+        reference_crc = calculate_crc32(uploaded_data)
 
+        st.session_state.reference_crc = reference_crc
 
-# ============================================================
-# FILE INFORMATION
-# ============================================================
+        st.session_state.current_crc = reference_crc
 
-if st.session_state.current_data is not None:
+        st.session_state.last_result = "READY"
 
-    file_size = len(st.session_state.current_data)
+        st.session_state.report_data = None
 
-    col1, col2, col3 = st.columns(3)
 
-    with col1:
-        st.metric(
-            "📄 File",
-            st.session_state.file_name
-        )
+# =========================================================
+# CURRENT VALUES
+# =========================================================
 
-    with col2:
-        st.metric(
-            "📦 File Size",
-            f"{file_size} bytes"
-        )
+file_name = st.session_state.file_name
+original_data = st.session_state.original_data
+current_data = st.session_state.current_data
+reference_crc = st.session_state.reference_crc
+current_crc = st.session_state.current_crc
+last_result = st.session_state.last_result
 
-    with col3:
-        if st.session_state.reference_crc:
-            st.metric(
-                "🔢 Reference CRC-32",
-                st.session_state.reference_crc
-            )
-        else:
-            st.metric(
-                "🔢 Reference CRC-32",
-                "Not Generated"
-            )
 
+# =========================================================
+# CRC-32 STATUS
+# =========================================================
 
-    st.divider()
+st.subheader("📊 CRC-32 Status")
 
+status1, status2, status3, status4 = st.columns(4)
 
-    # ========================================================
-    # MAIN BUTTONS
-    # ========================================================
 
-    st.subheader("⚙️ File Integrity Operations")
+with status1:
 
-    col1, col2, col3 = st.columns(3)
-
-    # --------------------------------------------------------
-    # GENERATE CRC
-    # --------------------------------------------------------
-
-    with col1:
-
-        if st.button(
-            "🔢 Generate CRC-32",
-            use_container_width=True
-        ):
-
-            crc = calculate_crc32(
-                st.session_state.current_data
-            )
-
-            st.session_state.reference_crc = f"{crc:08X}"
-
-            st.session_state.last_result = (
-                "CRC reference generated successfully."
-            )
-
-            st.success(
-                f"Reference CRC-32: {crc:08X}"
-            )
-
-
-    # --------------------------------------------------------
-    # VERIFY CRC
-    # --------------------------------------------------------
-
-    with col2:
-
-        if st.button(
-            "🔍 Verify CRC-32",
-            use_container_width=True
-        ):
-
-            if st.session_state.reference_crc is None:
-
-                st.warning(
-                    "Please generate the CRC-32 reference first."
-                )
-
-            else:
-
-                current_crc = calculate_crc32(
-                    st.session_state.current_data
-                )
-
-                current_crc_hex = f"{current_crc:08X}"
-
-                if (
-                    current_crc_hex
-                    == st.session_state.reference_crc
-                ):
-
-                    st.session_state.last_result = "NO ERROR DETECTED"
-
-                    st.success(
-                        "✅ FILE INTACT\n\n"
-                        "RESULT: NO ERROR DETECTED"
-                    )
-
-                else:
-
-                    st.session_state.last_result = "ERROR DETECTED"
-
-                    st.error(
-                        "❌ FILE MODIFIED\n\n"
-                        "RESULT: ERROR DETECTED"
-                    )
-
-
-    # --------------------------------------------------------
-    # SIMULATE ERROR
-    # --------------------------------------------------------
-
-    with col3:
-
-        if st.button(
-            "⚠️ Simulate Error",
-            use_container_width=True
-        ):
-
-            if len(st.session_state.current_data) == 0:
-
-                st.warning("The selected file is empty.")
-
-            else:
-
-                corrupted_data = bytearray(
-                    st.session_state.current_data
-                )
-
-                # Change one byte exactly like the
-                # original error simulation.
-                corrupted_data[0] = corrupted_data[0] ^ 1
-
-                st.session_state.current_data = bytes(
-                    corrupted_data
-                )
-
-                st.session_state.last_result = None
-
-                st.warning(
-                    "⚠️ One byte has been modified "
-                    "to simulate a file error."
-                )
-
-
-    st.write("")
-
-
-    # ========================================================
-    # SECOND ROW OF OPERATIONS
-    # ========================================================
-
-    col1, col2, col3 = st.columns(3)
-
-
-    # --------------------------------------------------------
-    # CREATE CSV REPORT
-    # --------------------------------------------------------
-
-    with col1:
-
-        if st.button(
-            "📊 Create CSV Report",
-            use_container_width=True
-        ):
-
-            if st.session_state.reference_crc is None:
-
-                st.warning(
-                    "Please generate the CRC-32 reference first."
-                )
-
-            else:
-
-                current_crc = calculate_crc32(
-                    st.session_state.current_data
-                )
-
-                current_crc_hex = f"{current_crc:08X}"
-
-                if (
-                    current_crc_hex
-                    == st.session_state.reference_crc
-                ):
-                    result = "NO ERROR"
-                else:
-                    result = "ERROR DETECTED"
-
-                output = io.StringIO()
-
-                writer = csv.writer(output)
-
-                writer.writerow(
-                    [
-                        "Date and Time",
-                        "File",
-                        "Reference CRC-32",
-                        "Current CRC-32",
-                        "Result"
-                    ]
-                )
-
-                writer.writerow(
-                    [
-                        datetime.now().strftime(
-                            "%Y-%m-%d %H:%M:%S"
-                        ),
-                        st.session_state.file_name,
-                        st.session_state.reference_crc,
-                        current_crc_hex,
-                        result
-                    ]
-                )
-
-                st.session_state.report_data = (
-                    output.getvalue()
-                )
-
-                st.success(
-                    "CSV report created successfully."
-                )
-
-
-    # --------------------------------------------------------
-    # RESTORE FILE
-    # --------------------------------------------------------
-
-    with col2:
-
-        if st.button(
-            "♻️ Restore File",
-            use_container_width=True
-        ):
-
-            if st.session_state.original_data is not None:
-
-                st.session_state.current_data = (
-                    st.session_state.original_data
-                )
-
-                st.session_state.last_result = None
-
-                st.success(
-                    "File restored to its original uploaded state."
-                )
-
-
-    # --------------------------------------------------------
-    # CLEAR
-    # --------------------------------------------------------
-
-    with col3:
-
-        if st.button(
-            "🗑️ Clear",
-            use_container_width=True
-        ):
-
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-
-            st.rerun()
-
-
-    # ========================================================
-    # CSV DOWNLOAD
-    # ========================================================
-
-    if "report_data" in st.session_state:
-
-        st.download_button(
-            label="⬇️ Download CSV Report",
-            data=st.session_state.report_data,
-            file_name="error_detection_report.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-
-
-    st.divider()
-
-
-    # ========================================================
-    # CURRENT CRC INFORMATION
-    # ========================================================
-
-    st.subheader("🔎 Current File Integrity Information")
-
-    current_crc = calculate_crc32(
-        st.session_state.current_data
+    st.metric(
+        label="Verification Status",
+        value=last_result
     )
 
-    current_crc_hex = f"{current_crc:08X}"
 
-    col1, col2 = st.columns(2)
+with status2:
 
-    with col1:
+    st.metric(
+        label="Current CRC-32",
+        value=format_crc(current_crc)
+    )
+
+
+with status3:
+
+    st.metric(
+        label="Reference CRC-32",
+        value=format_crc(reference_crc)
+    )
+
+
+with status4:
+
+    st.metric(
+        label="Selected File",
+        value=file_name if file_name else "NO FILE"
+    )
+
+
+# =========================================================
+# FILE INFORMATION
+# =========================================================
+
+if file_name is not None and current_data is not None:
+
+    st.divider()
+
+    st.subheader("📄 File Information")
+
+    info1, info2, info3 = st.columns(3)
+
+    with info1:
+
+        st.write("**File Name**")
+
+        st.info(file_name)
+
+    with info2:
+
+        st.write("**File Size**")
 
         st.info(
-            f"**Current CRC-32:** `{current_crc_hex}`"
+            format_file_size(len(current_data))
         )
 
-    with col2:
+    with info3:
 
-        if st.session_state.reference_crc:
+        st.write("**Reference CRC-32**")
 
-            st.info(
-                f"**Reference CRC-32:** "
-                f"`{st.session_state.reference_crc}`"
-            )
-
-        else:
-
-            st.info(
-                "**Reference CRC-32:** Not generated"
-            )
-
-
-    # ========================================================
-    # RESULT
-    # ========================================================
-
-    if st.session_state.last_result == "NO ERROR DETECTED":
-
-        st.markdown(
-            """
-            <div class="status-box success-box">
-
-            <h3>✅ STATUS: FILE INTACT</h3>
-
-            <b>RESULT: NO ERROR DETECTED</b>
-
-            <p>
-            The current CRC-32 matches the stored reference CRC-32.
-            The file integrity has been verified.
-            </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
+        st.code(
+            format_crc(reference_crc),
+            language=None
         )
 
-
-    elif st.session_state.last_result == "ERROR DETECTED":
-
-        st.markdown(
-            """
-            <div class="status-box error-box">
-
-            <h3>❌ STATUS: FILE MODIFIED</h3>
-
-            <b>RESULT: ERROR DETECTED</b>
-
-            <p>
-            The current CRC-32 does not match the stored reference CRC-32.
-            The file has been modified or corrupted.
-            </p>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ============================================================
-# INSTRUCTIONS WHEN NO FILE IS SELECTED
-# ============================================================
 
 else:
 
     st.info(
-        """
-        ### How to use the dashboard
-
-        1. Upload a file.
-        2. Click **Generate CRC-32** to create the original reference checksum.
-        3. Click **Verify CRC-32** to check file integrity.
-        4. Click **Simulate Error** to intentionally modify one byte.
-        5. Click **Verify CRC-32** again to detect the modification.
-        6. Click **Restore File** to return to the original uploaded file.
-        7. Create and download a CSV report.
-        """
+        "📌 Upload a file above to begin CRC-32 error detection."
     )
+
+
+# =========================================================
+# CRC-32 OPERATIONS
+# =========================================================
+
+st.divider()
+
+st.subheader("⚙️ CRC-32 Operations")
+
+st.write(
+    "Generate the checksum, verify file integrity, or simulate "
+    "a file modification for error detection."
+)
+
+operation1, operation2, operation3 = st.columns(3)
+
+
+# ---------------------------------------------------------
+# GENERATE CRC-32
+# ---------------------------------------------------------
+
+with operation1:
+
+    if st.button(
+        "🔢 Generate CRC-32",
+        type="primary",
+        use_container_width=True
+    ):
+
+        if current_data is None:
+
+            st.warning(
+                "Please upload a file first."
+            )
+
+        else:
+
+            calculated_crc = calculate_crc32(
+                current_data
+            )
+
+            st.session_state.current_crc = calculated_crc
+
+            if st.session_state.reference_crc is None:
+
+                st.session_state.reference_crc = calculated_crc
+
+            st.session_state.last_result = "CRC GENERATED"
+
+            st.success(
+                f"CRC-32 generated: {format_crc(calculated_crc)}"
+            )
+
+            st.rerun()
+
+
+# ---------------------------------------------------------
+# VERIFY CRC-32
+# ---------------------------------------------------------
+
+with operation2:
+
+    if st.button(
+        "🔍 Verify CRC-32",
+        type="primary",
+        use_container_width=True
+    ):
+
+        if current_data is None:
+
+            st.warning(
+                "Please upload a file first."
+            )
+
+        elif reference_crc is None:
+
+            st.warning(
+                "Generate a CRC-32 reference value first."
+            )
+
+        else:
+
+            calculated_crc = calculate_crc32(
+                current_data
+            )
+
+            st.session_state.current_crc = calculated_crc
+
+            if calculated_crc == reference_crc:
+
+                st.session_state.last_result = "FILE INTACT"
+
+                st.success(
+                    "✅ FILE INTACT — NO ERROR DETECTED"
+                )
+
+            else:
+
+                st.session_state.last_result = "ERROR DETECTED"
+
+                st.error(
+                    "❌ FILE MODIFIED — ERROR DETECTED"
+                )
+
+            st.rerun()
+
+
+# ---------------------------------------------------------
+# SIMULATE ERROR
+# ---------------------------------------------------------
+
+with operation3:
+
+    if st.button(
+        "⚠️ Simulate Error",
+        use_container_width=True
+    ):
+
+        if current_data is None:
+
+            st.warning(
+                "Please upload a file first."
+            )
+
+        elif len(current_data) == 0:
+
+            st.warning(
+                "The selected file is empty."
+            )
+
+        else:
+
+            modified_data = bytearray(
+                current_data
+            )
+
+            # Flip one bit in the first byte
+            modified_data[0] ^= 1
+
+            st.session_state.current_data = bytes(
+                modified_data
+            )
+
+            modified_crc = calculate_crc32(
+                st.session_state.current_data
+            )
+
+            st.session_state.current_crc = modified_crc
+
+            st.session_state.last_result = "FILE MODIFIED"
+
+            st.warning(
+                "⚠️ A simulated modification has been "
+                "introduced into the file."
+            )
+
+            st.rerun()
+
+
+# =========================================================
+# VERIFICATION RESULT
+# =========================================================
+
+if last_result == "FILE INTACT":
+
+    st.divider()
+
+    st.success(
+        "### ✅ FILE INTACT\n\n"
+        "The current CRC-32 matches the reference CRC-32. "
+        "No error was detected."
+    )
+
+
+elif last_result == "ERROR DETECTED":
+
+    st.divider()
+
+    st.error(
+        "### ❌ ERROR DETECTED\n\n"
+        "The current CRC-32 does not match the reference CRC-32. "
+        "The file has been modified."
+    )
+
+
+elif last_result == "FILE MODIFIED":
+
+    st.divider()
+
+    st.warning(
+        "### ⚠️ FILE MODIFIED\n\n"
+        "A simulated modification has been introduced. "
+        "Click **Verify CRC-32** to detect the error."
+    )
+
+
+elif last_result == "CRC GENERATED":
+
+    st.divider()
+
+    st.info(
+        "### ℹ️ CRC-32 GENERATED\n\n"
+        "The checksum has been calculated successfully."
+    )
+
+
+# =========================================================
+# CRC COMPARISON
+# =========================================================
+
+if reference_crc is not None and current_crc is not None:
+
+    st.divider()
+
+    st.subheader("🔎 CRC-32 Comparison")
+
+    comparison1, comparison2 = st.columns(2)
+
+    with comparison1:
+
+        st.write("**Reference CRC-32**")
+
+        st.code(
+            format_crc(reference_crc),
+            language=None
+        )
+
+    with comparison2:
+
+        st.write("**Current CRC-32**")
+
+        st.code(
+            format_crc(current_crc),
+            language=None
+        )
+
+
+    if current_crc == reference_crc:
+
+        st.success(
+            "✓ CRC-32 values match — File integrity maintained."
+        )
+
+    else:
+
+        st.error(
+            "✗ CRC-32 values differ — File modification detected."
+        )
+
+
+# =========================================================
+# FILE MANAGEMENT
+# =========================================================
+
+st.divider()
+
+st.subheader("🛠️ File Management")
+
+management1, management2, management3 = st.columns(3)
+
+
+# ---------------------------------------------------------
+# RESTORE ORIGINAL
+# ---------------------------------------------------------
+
+with management1:
+
+    if st.button(
+        "♻️ Restore Original",
+        use_container_width=True
+    ):
+
+        if original_data is None:
+
+            st.warning(
+                "Please upload a file first."
+            )
+
+        else:
+
+            st.session_state.current_data = original_data
+
+            restored_crc = calculate_crc32(
+                original_data
+            )
+
+            st.session_state.current_crc = restored_crc
+
+            st.session_state.last_result = "FILE INTACT"
+
+            st.success(
+                "♻️ Original file restored successfully."
+            )
+
+            st.rerun()
+
+
+# ---------------------------------------------------------
+# CREATE CSV REPORT
+# ---------------------------------------------------------
+
+with management2:
+
+    if st.button(
+        "📋 Create CSV Report",
+        use_container_width=True
+    ):
+
+        if file_name is None:
+
+            st.warning(
+                "Please upload a file first."
+            )
+
+        else:
+
+            calculated_current_crc = calculate_crc32(
+                current_data
+            )
+
+            st.session_state.current_crc = (
+                calculated_current_crc
+            )
+
+            if (
+                reference_crc is not None
+                and calculated_current_crc == reference_crc
+            ):
+
+                result = "NO ERROR DETECTED"
+
+            else:
+
+                result = "ERROR DETECTED"
+
+
+            timestamp = datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+
+
+            st.session_state.report_data = {
+                "Date and Time": timestamp,
+                "File": file_name,
+                "Reference CRC-32": format_crc(
+                    reference_crc
+                ),
+                "Current CRC-32": format_crc(
+                    calculated_current_crc
+                ),
+                "Result": result
+            }
+
+
+            st.success(
+                "📋 CSV report created successfully."
+            )
+
+
+# ---------------------------------------------------------
+# CLEAR DASHBOARD
+# ---------------------------------------------------------
+
+with management3:
+
+    if st.button(
+        "🗑️ Clear Dashboard",
+        use_container_width=True
+    ):
+
+        reset_dashboard()
+
+        st.success(
+            "Dashboard cleared successfully."
+        )
+
+        st.rerun()
+
+
+# =========================================================
+# CSV REPORT DOWNLOAD
+# =========================================================
+
+if st.session_state.report_data is not None:
+
+    st.divider()
+
+    st.subheader("📥 CSV Report")
+
+    report = st.session_state.report_data
+
+    csv_buffer = io.StringIO()
+
+    writer = csv.DictWriter(
+        csv_buffer,
+        fieldnames=[
+            "Date and Time",
+            "File",
+            "Reference CRC-32",
+            "Current CRC-32",
+            "Result"
+        ]
+    )
+
+    writer.writeheader()
+
+    writer.writerow(report)
+
+    csv_data = csv_buffer.getvalue()
+
+
+    st.download_button(
+        label="⬇️ Download CSV Report",
+        data=csv_data,
+        file_name="error_detection_report.csv",
+        mime="text/csv"
+    )
+
+
+# =========================================================
+# PROJECT INFORMATION
+# =========================================================
+
+st.divider()
+
+st.subheader("ℹ️ About the System")
+
+about1, about2, about3 = st.columns(3)
+
+with about1:
+
+    st.write("**Purpose**")
+
+    st.write(
+        "Detect file modifications by comparing "
+        "CRC-32 checksum values."
+    )
+
+
+with about2:
+
+    st.write("**Technique**")
+
+    st.write(
+        "CRC-32 checksum generation and "
+        "comparison."
+    )
+
+
+with about3:
+
+    st.write("**Application Area**")
+
+    st.write(
+        "Operating Systems / Computer Networks "
+        "error detection."
+    )
+
+
+# =========================================================
+# FOOTER
+# =========================================================
+
+st.divider()
+
+st.caption(
+    "CRC-32 Error Detection System | "
+    "Operating Systems / Computer Networks | "
+    "Error Detection"
+)
